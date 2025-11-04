@@ -11,7 +11,7 @@ export class UsersController {
   constructor(
     private readonly users: UsersService,
     private readonly auth: AuthService,
-  ) {}
+  ) { }
 
   @Post('register')
   async register(@Body() dto: RegisterDto) {
@@ -26,15 +26,39 @@ export class UsersController {
   @Post('login')
   async login(@Body() dto: LoginDto) {
     const user = await this.users.verifyCredentials(dto.email, dto.password);
-    const token = this.auth.issueToken({
+    const { accessToken, refreshToken } = this.auth.issueTokens({
       sub: (user as any)._id,
       email: user.email,
     });
+    await this.users.setRefreshToken((user as any)._id.toString(), refreshToken);
     return {
       status: 'success',
       message: 'Login successful',
-      token,
+      accessToken,
+      refreshToken,
       user,
     };
+  }
+
+  @Post('refresh')
+  async refresh(@Body('userId') userId: string, @Body('refreshToken') refreshToken: string) {
+    const user = await this.users.validateRefreshToken(userId, refreshToken);
+    const { accessToken, refreshToken: newRefreshToken } = this.auth.issueTokens({
+      sub: (user as any)._id,
+      email: user.email,
+    });
+    await this.users.setRefreshToken((user as any)._id.toString(), newRefreshToken);
+    return {
+      status: 'success',
+      message: 'Token refreshed',
+      accessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+
+  @Post('logout')
+  async logout(@Body('userId') userId: string) {
+    await this.users.clearRefreshToken(userId);
+    return { status: 'success', message: 'Logged out' };
   }
 }
