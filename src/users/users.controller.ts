@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseFilters } from '@nestjs/common';
+import { Body, Controller, Post, UnauthorizedException, UseFilters } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
@@ -41,8 +41,9 @@ export class UsersController {
   }
 
   @Post('refresh')
-  async refresh(@Body('userId') userId: string, @Body('refreshToken') refreshToken: string) {
-    const user = await this.users.validateRefreshToken(userId, refreshToken);
+  async refresh(@Body('refreshToken') refreshToken: string) {
+    if (!refreshToken) throw new UnauthorizedException('Missing refresh token');
+    const user = await this.users.findByRefreshToken(refreshToken);
     const { accessToken, refreshToken: newRefreshToken } = this.auth.issueTokens({
       sub: (user as any)._id,
       email: user.email,
